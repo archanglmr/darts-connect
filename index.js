@@ -1,5 +1,11 @@
 'use strict';
-var DartsConnectClient = require(__dirname + '/DartsConnectClient.class.js');
+var http = require('http'),
+    DartsConnectClient = require(__dirname + '/DartsConnectClient.class.js');
+
+
+
+const DART_SERVER_HOST = 'localhost',
+    DART_SERVER_PORT = 3000;
 
 var client = new DartsConnectClient({log: false});
 client.connect('192.168.1.109', {callback: (event) => {

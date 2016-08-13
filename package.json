@@ -1,0 +1,17 @@
+{
+  "name": "darts_connect",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "MIT",
+  "engines": {
+    "node": ">=6.2.1",
+    "npm": ">=3.8.9"
+  },
+  "dependencies": {}
+}

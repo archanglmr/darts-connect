@@ -59,3 +59,5 @@ client.connect('192.168.1.109', {callback: (event) => {
 ```
 
 If you look in `index.js` you'll see an example that creates a Darts Connect client and passes the data to a darts game server ([like this one](https://github.com/archanglmr/dart-server)).
+
+For a complete list of the events you can receive in your callback look in `DartsConnectClient.class.js` at the `emit()` method.

@@ -64,7 +64,7 @@ module.exports = class DartsConnectClient {
       this.client.on('data', (chunk) => {
         var event = analyze_data(chunk, this.log);
         if (event) {
-          this.emmit(event);
+          this.emit(event);
         }
       });
 
@@ -141,10 +141,9 @@ module.exports = class DartsConnectClient {
    *        information. See lib/board_map.js for valid values.
    * next: When the "next player" button is hit on the board
    *
-   *
    * @param event
    */
-  emmit(event) {
+  emit(event) {
     this.callback(event);
   }
 };
@@ -170,7 +169,7 @@ var throw_data = null,
     ignore_next_turn_till = 0; // how long to ignore next turn responses
 
 /**
- * Analyzes the packet from the dartboard and returns an event to Emmit.
+ * Analyzes the packet from the dartboard and returns an event to Emit.
  *
  * @param data
  * @param log

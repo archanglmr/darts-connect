@@ -1,5 +1,5 @@
 {
-  "name": "darts_connect",
+  "name": "darts-connect",
   "version": "1.0.0",
   "description": "Basic API (Class) to read a Darts Connect dartboard",
   "keywords": ["Darts", "dartboard", "darts connect", "wifi"],

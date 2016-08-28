@@ -36,10 +36,12 @@ client.connect('192.168.1.109', {callback: (event) => {
           break;
       }
       throwData = {type: type, number: ('b' === number ? 21 : parseInt(number))};
+      console.log(throwData);
       break;
 
     case 'next':
       throwData = {type: 'MISS', number: 0};
+      console.log(throwData);
       break;
 
     case 'connected':

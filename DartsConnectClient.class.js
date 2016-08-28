@@ -5,7 +5,6 @@ var net = require('net');
  * @todo: Don't ping while reading throw
  * @todo: add discovery stuff
  * @todo: add auto reconnect
- * @todo: add observers
  */
 
 const PORT = 11080,
@@ -15,6 +14,11 @@ const PORT = 11080,
 
 
 module.exports = class DartsConnectClient {
+  /**
+   * Create a nw DartsConnect Client, but don't connect to the board yet.
+   *
+   * @param log {function}
+   */
   constructor({log = false}) {
     /**
      * Set up a logging function
@@ -26,16 +30,27 @@ module.exports = class DartsConnectClient {
     this.client = null;
     this.ping_interval = null;
     this.ping_interval_time = null;
+    this.callback = (e) => {};
 
     //this.connection_start_time = null;
     //this.connection_end_time = null;
   }
-  
-  connect(host, {ping_time = 60000, port = PORT, callback = (event) => { this.log(event); }}) {
+
+  /**
+   * Connect to the board. Requires a host or address to connect to.
+   *
+   * @param host
+   *
+   * @param callback
+   * @param ping_time
+   * @param port
+   */
+  connect(host, {callback, ping_time = 60000, port = PORT}) {
     if (null === this.client) {
       this.host = host;
       this.port = port;
       this.ping_interval_time = ping_time;
+      this.callback = callback || this.callback;
 
       this.client = new net.Socket();
       this.client.setEncoding('hex');
@@ -47,30 +62,28 @@ module.exports = class DartsConnectClient {
 
 
       this.client.on('data', (chunk) => {
-        /* @fixme: needs to be a callback instead of console.log() */
         var event = analyze_data(chunk, this.log);
         if (event) {
-          callback(event);
+          this.emmit(event);
         }
       });
 
       this.client.on('end', (data) => {
         this.log('>>> END');
+        this.emit({type: 'end'});
         this.disconnect();
       });
 
       this.client.on('close', (data) => {
         this.log('Connection closed');
         this.log((new Date()).getTime());
-        if (this.ping_interval) {
-          clearInterval(this.ping_interval);
-          this.ping_interval = null;
-        }
+        this.emit({type: 'close'});
         this.disconnect();
       });
 
       this.client.on('error', (error) => {
         this.log(error);
+        this.emit({type: 'error', data: error});
       });
 
 
@@ -85,15 +98,54 @@ module.exports = class DartsConnectClient {
 
 
   disconnect() {
+    if (this.ping_interval) {
+      clearInterval(this.ping_interval);
+      this.ping_interval = null;
+    }
     if (null !== this.client) {
       this.client.destroy();
       this.client = null;
     }
   }
 
+  /**
+   * Sends the ping packet to the dartboard. This need to happen every so often
+   * or the board will close the connection after about 5 min. The default ping
+   * interval is 1 minute and seems to work pretty well. If there is no client
+   * false is returned.
+   *
+   * @returns {boolean}
+   */
   ping() {
-    this.client.write(PING_PACKET);
-    this.log('< PING');
+    if (this.client) {
+      this.client.write(PING_PACKET);
+      this.log('< PING');
+      return true;
+    }
+    this.log('No connection to dartboard');
+    return false;
+  }
+
+  /**
+   * Emit's an event to the callback passed on connection. Types are:
+   *
+   *
+   * unknown: Unknown data received.
+   * connected: When an connection is established to the dartboard.
+   * pinged: When a ping response is received.
+   * bad_header: Packet begins with an unknown header.
+   * closed: Connection was closed by the dartboard.
+   * end: Connection disappeared I believe???
+   * error: Any sort of socket error. This will have a 'data' key with the error
+   * throw: A typical throw. This also returns a 'data' key with the throw
+   *        information. See lib/board_map.js for valid values.
+   * next: When the "next player" button is hit on the board
+   *
+   *
+   * @param event
+   */
+  emmit(event) {
+    this.callback(event);
   }
 };
 
@@ -114,9 +166,16 @@ module.exports = class DartsConnectClient {
  ******************************************************************************/
 
 var throw_data = null,
-    last_data_was_next_turn = false,
-    ignore_next_turn_till = 0;
+    last_data_was_next_turn = false, // when the last packets received were the "next turn" packets
+    ignore_next_turn_till = 0; // how long to ignore next turn responses
 
+/**
+ * Analyzes the packet from the dartboard and returns an event to Emmit.
+ *
+ * @param data
+ * @param log
+ * @returns {{type: string, data}}
+ */
 function analyze_data(data, log) {
   const HEADER = '23080000010000000',
       HEADER_LENGTH = HEADER.length,
@@ -126,7 +185,7 @@ function analyze_data(data, log) {
       THROW_HEADER = '2010000',
       THROW_FOOTER = 'ffd9';
 
-  var event = '';
+  var event = null;
 
   if (data.substr(0, HEADER_LENGTH) === HEADER) {
     let payload = data.substr(HEADER_LENGTH);
@@ -149,6 +208,7 @@ function analyze_data(data, log) {
       // full packet for next turn
       if (last_data_was_next_turn && ((new Date()).getTime()) < ignore_next_turn_till) {
         //log('ignoring multiple "next turns"');
+        return;
       } else {
         log("> NEXT TURN");
         last_data_was_next_turn = true;
@@ -197,6 +257,7 @@ function analyze_data(data, log) {
       return analyze_data(full_data, log);
     }
   } else {
+    event = {type: 'bad_header'};
     log('BAD HEADER:');
     log(data);
     log('');

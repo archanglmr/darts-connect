@@ -4,11 +4,12 @@ var http = require('http'),
 
 
 
-const DART_SERVER_HOST = 'localhost',
-    DART_SERVER_PORT = 3000;
+const DART_GAME_SERVER_HOST = 'localhost',
+    DART_GAME_SERVER_PORT = 3000,
+    DARTS_CONNECT_BOARD = '192.168.1.135';
 
 var client = new DartsConnectClient({log: false});
-client.connect('192.168.1.109', {callback: (event) => {
+client.connect(DARTS_CONNECT_BOARD, {callback: (event) => {
   var throwData = null;
   switch(event.type) {
     case 'throw':
@@ -34,27 +35,33 @@ client.connect('192.168.1.109', {callback: (event) => {
           break;
       }
       throwData = {type: type, number: ('b' === number ? 21 : parseInt(number))};
+      console.log('dartboard: throw');
       break;
 
     case 'next':
       throwData = {type: 'MISS', number: 0};
+      console.log('dartboard: next');
       break;
 
     case 'connected':
-      console.log(' -connected');
+      console.log('dartboard: connected');
       break;
 
     case 'pinged':
-      console.log(' -pinged');
+      console.log('dartboard: pinged');
       break;
 
     default:
+      console.log(`dartboard: ${event.type}`);
+      if (event.data) {
+        console.log(event.data);
+      }
       break;
   }
 
   if (null !== throwData) {
     // submit here
-    console.log('send:', throwData);
+    console.log('send to game:', throwData);
     post_to_dart_server(throwData);
   }
 }});
@@ -64,8 +71,8 @@ client.connect('192.168.1.109', {callback: (event) => {
 function post_to_dart_server(data) {
   var encoded = JSON.stringify(data),
       req = http.request({
-        host: DART_SERVER_HOST,
-        port: DART_SERVER_PORT,
+        host: DART_GAME_SERVER_HOST,
+        port: DART_GAME_SERVER_PORT,
         path: '/api/throw',
         method: 'POST',
         headers: {
@@ -74,11 +81,14 @@ function post_to_dart_server(data) {
         }
       }, (res) => {
         res.setEncoding('utf8');
-        res.on('data', function (chunk) {
-          console.log("body: " + chunk);
+        res.on('data', (chunk) => {
+          console.log("game response: " + chunk);
         });
       });
 
+  req.on('error', (e) => {
+    console.log(`game response: problem with request: ${e.message}`);
+  });
   req.write(encoded);
   req.end();
 }
